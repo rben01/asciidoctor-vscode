@@ -2,73 +2,71 @@
   *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode'
-import { AsciidocContributions } from './asciidocExtensions'
-import { AsciidocParser, AsciidoctorBuiltInBackends } from './asciidocParser'
-import { Asciidoctor } from '@asciidoctor/core'
-import { SkinnyTextDocument } from './util/document'
+import * as vscode from 'vscode';
+import { AsciidocContributions } from './asciidocExtensions';
+import { Slugifier } from './slugify';
+import { getUriForLinkWithKnownExternalScheme } from './util/links';
+import { AsciidocParser } from './text-parser'
 
-const FrontMatterRegex = /^---\s*[^]*?(-{3}|\.{3})\s*/
+const FrontMatterRegex = /^---\s*[^]*?(-{3}|\.{3})\s*/;
 
 export class AsciidocEngine {
-  private ad?: AsciidocParser
+    private ad?: AsciidocParser;
 
-  private firstLine?: number
+	private firstLine?: number;
 
-  public constructor (
-    readonly extensionPreviewResourceProvider: AsciidocContributions,
-    private readonly errorCollection: vscode.DiagnosticCollection = null
-  ) {
-    this.extensionPreviewResourceProvider = extensionPreviewResourceProvider
-    this.errorCollection = errorCollection
-  }
+	private currentDocument?: vscode.Uri;
 
-  private getEngine (): AsciidocParser {
-    // singleton
-    if (!this.ad) {
-      this.ad = new AsciidocParser(this.extensionPreviewResourceProvider.extensionUri, this.errorCollection)
-    }
+	public constructor(
+		private readonly extensionPreviewResourceProvider: AsciidocContributions,
+		private readonly slugifier: Slugifier,
+		private readonly errorCollection: vscode.DiagnosticCollection = null
+	) { }
 
-    return this.ad
-  }
 
-  private stripFrontmatter (text: string): { text: string, offset: number } {
-    let offset = 0
-    const frontMatterMatch = FrontMatterRegex.exec(text)
-    if (frontMatterMatch) {
-      const frontMatter = frontMatterMatch[0]
-      offset = frontMatter.split(/\r\n|\n|\r/g).length - 1
-      text = text.substr(frontMatter.length)
-    }
-    return { text, offset }
-  }
+	private async getEngine(resource: vscode.Uri): Promise<AsciidocParser> {
+	  if (!this.ad) {
+	    this.ad = new AsciidocParser(resource.fsPath, this.errorCollection);
+	  }
 
-  public async convert (
-    documentUri: vscode.Uri,
-    stripFrontmatter: boolean,
-    text: string,
-    context: vscode.ExtensionContext,
-    editor: vscode.WebviewPanel
-  ): Promise<{output: string, document?: Asciidoctor.Document}> {
-    let offset = 0
-    if (stripFrontmatter) {
-      const asciidocContent = this.stripFrontmatter(text)
-      offset = asciidocContent.offset
-      text = asciidocContent.text
-    }
+	  const config = vscode.workspace.getConfiguration('asciidoc', resource);
+	  return this.ad;
+	}
 
-    this.firstLine = offset
-    const textDocument = await vscode.workspace.openTextDocument(documentUri)
-    const { html: output, document } = this.getEngine().convertUsingJavascript(text, textDocument, context, editor)
-    return { output, document }
-  }
+	private stripFrontmatter(text: string): { text: string, offset: number } {
+	  let offset = 0;
+	  const frontMatterMatch = FrontMatterRegex.exec(text);
+	  if (frontMatterMatch) {
+	    const frontMatter = frontMatterMatch[0];
+	    offset = frontMatter.split(/\r\n|\n|\r/g).length - 1;
+	    text = text.substr(frontMatter.length);
+	  }
+	  return { text, offset };
+	}
 
-  public export (textDocument: vscode.TextDocument, backend: AsciidoctorBuiltInBackends): { output: string, document: Asciidoctor.Document } {
-    return this.getEngine().export(textDocument.getText(), textDocument, backend)
-  }
+	public async render(document: vscode.Uri, stripFrontmatter: boolean, text: string, 
+	  forHTML: boolean = false, backend: string = 'html5'): Promise<string> {
+	  let offset = 0;
+	  if (stripFrontmatter) {
+	    const asciidocContent = this.stripFrontmatter(text);
+	    offset = asciidocContent.offset;
+	    text = asciidocContent.text;
+	  }
 
-  public load (textDocument: SkinnyTextDocument): Asciidoctor.Document {
-    const { document } = this.getEngine().load(textDocument)
-    return document
-  }
+	  this.currentDocument = document;
+	  this.firstLine = offset;
+	  const engine = await this.getEngine(document);
+	  const doc = await vscode.workspace.openTextDocument(document);
+	  let ascii_doc = engine.parseText(text, doc, forHTML, backend)
+	  return ascii_doc;
+	}
+
+	public async parse(document: vscode.Uri, source: string): Promise<any> {
+	  this.currentDocument = document;
+	  const engine = await this.getEngine(document);
+	  const doc = await vscode.workspace.openTextDocument(document);
+	  let ascii_doc = await engine.parseText(source, doc);
+	  return engine.document
+	}
+
 }

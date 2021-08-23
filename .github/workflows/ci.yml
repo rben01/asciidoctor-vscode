@@ -1,12 +1,6 @@
 name: Lint and Compile
 
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - '*'
+on: [push]
 
 jobs:
   build:
@@ -16,11 +10,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v1
       with:
-        node-version: '14'
+        node-version: '12.x'
     - run: npm ci
     - run: npm run lint
-    - run: npm run build
-    - run: npm run build-web
-    - run: xvfb-run -a npm t
+    - run: npm run compile
+

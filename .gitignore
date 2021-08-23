@@ -7,6 +7,3 @@ media/*.js
 test/samples/playground.*
 dist/
 .DS_Store
-.vscode-test/
-.vscode-test-web/
-media/highlightjs/*
