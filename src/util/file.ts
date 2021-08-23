@@ -2,21 +2,24 @@
   *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode'
-import * as ospath from 'path'
-import * as fs from 'fs'
+import * as vscode from 'vscode';
+import * as path from "path";
+import { join } from "path";
+import { readdir, statSync } from "fs";
+const { promisify } = require("util");
+const readdirAsync = promisify(readdir);
 
-export function isAsciidocFile (document: vscode.TextDocument) {
-  return document.languageId === 'asciidoc'
+export function isAsciidocFile(document: vscode.TextDocument) {
+  return document.languageId === 'asciidoc';
 }
 
 export class FileInfo {
-  file: string
-  isFile: boolean
+  file: string;
+  isFile: boolean;
 
-  constructor (path: string, file: string) {
-    this.file = file
-    this.isFile = fs.statSync(ospath.join(path, file)).isFile()
+  constructor(path: string, file: string) {
+    this.file = file;
+    this.isFile = statSync(join(path, file)).isFile();
   }
 }
 
@@ -24,46 +27,38 @@ export class FileInfo {
  * @param fileName  {string} current filename the look up is done. Absolute path
  * @param text      {string} text in import string. e.g. './src/'
  */
-export function getPathOfFolderToLookupFiles (
+export function getPathOfFolderToLookupFiles(
   fileName: string,
   text: string | undefined,
   rootPath?: string
 ): string {
-  const normalizedText = ospath.normalize(text || '')
+  const normalizedText = path.normalize(text || "");
 
-  const isPathAbsolute = normalizedText.startsWith(ospath.sep)
+  const isPathAbsolute = normalizedText.startsWith(path.sep);
 
-  let rootFolder = ospath.dirname(fileName)
-  const pathEntered = normalizedText
+  let rootFolder = path.dirname(fileName);
+  let pathEntered = normalizedText;
 
   if (isPathAbsolute) {
-    rootFolder = rootPath || ''
+    rootFolder = rootPath || "";
   }
 
-  return ospath.join(rootFolder, pathEntered)
+  return path.join(rootFolder, pathEntered);
 }
 
-export async function getChildrenOfPath (path: string) {
+export async function getChildrenOfPath(path: string) {
   try {
-    const files: string[] = await new Promise((resolve, reject) => {
-      fs.readdir(path, (err, files) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(files)
-        }
-      })
-    })
+    const files: string[] = await readdirAsync(path);
     const filesDbg = files
-      .map((f) => new FileInfo(path, f))
-    return filesDbg
+      .map((f) => new FileInfo(path, f));
+    return filesDbg;
   } catch (error) {
-    return []
+    return [];
   }
 }
 
 export const sortFilesAndDirectories = (filesAndDirs: FileInfo[]): FileInfo[] => {
-  const dirs = filesAndDirs.filter((f) => f.isFile !== true)
-  const files = filesAndDirs.filter((f) => f.isFile === true)
+  const dirs = filesAndDirs.filter((f) => f.isFile !== true);
+  const files = filesAndDirs.filter((f) => f.isFile === true);
   return [...dirs, ...files]
-}
+};
