@@ -6,10 +6,13 @@ module.exports = {
     "tsconfigRootDir": __dirname,
     "sourceType": "module"
   },
+  "plugins": ["@typescript-eslint"],
   "extends": [
-    //    "eslint:recommended",
-    //    "plugin:@typescript-eslint/recommended",
+    "standard"
   ],
+  "env": {
+    "mocha": true
+  },
   "rules": {
     "arrow-parens": ["error", "always"],
     "comma-dangle": ["error", {
@@ -24,7 +27,15 @@ module.exports = {
       "ignoreUrls": true,
       "ignoreTemplateLiterals": true
     }],
-    //"indent": ["error", 4],
-    "spaced-comment": "off"
+    // https://github.com/typescript-eslint/typescript-eslint/blob/02c6ff3c5a558f9308d7166d524156dc12e32759/packages/eslint-plugin/docs/rules/indent.md
+    "indent": "off",
+    "@typescript-eslint/indent": ["error", 2, { "SwitchCase": 1 }],
+    "semi": ["error", "never"],
+    "spaced-comment": "off",
+    // https://github.com/typescript-eslint/typescript-eslint/issues/2621
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    "no-useless-constructor": "off",
+    "@typescript-eslint/no-useless-constructor": ["error"]
   }
 };

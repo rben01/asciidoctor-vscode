@@ -2,95 +2,166 @@
   *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
-import { AsciidocEngine } from '../asciidocEngine';
-import { TableOfContentsProvider } from '../tableOfContentsProvider';
+import * as vscode from 'vscode'
+import { FoldingRangeKind } from 'vscode'
 
-const rangeLimit = 5000;
+import { AsciidocEngine } from '../asciidocEngine'
+import { TableOfContentsProvider } from '../tableOfContentsProvider'
 
-export default class AsciidocFoldingProvider implements vscode.FoldingRangeProvider {
+//https://github.com/asciidoctor/asciidoctor/blob/0aad7459d1fe548219733b4a2b4f00fd3bf6f362/lib/asciidoctor/rx.rb#L76
+const conditionalStartRx = /^(\\)?(ifdef|ifndef|ifeval)::(\S*?(?:([,+])\S*?)?)\[(#{CC_ANY}+)?/
+const conditionalEndRx = /^(\\)?(endif)::(\S*?(?:([,+])\S*?)?)\[(#{CC_ANY}+)?/
+const commentBlockRx = /^\/{4,}/
 
-  constructor(
-		private readonly engine: AsciidocEngine
-  ) { }
-
-  private async getRegions(document: vscode.TextDocument): Promise<vscode.FoldingRange[]> {
-
-    const isStartRegion = (t: string) => /^\s*<!--\s*#?region\b.*-->/.test(t);
-    const isEndRegion = (t: string) => /^\s*<!--\s*#?endregion\b.*-->/.test(t);
-
-    const isRegionMarker = (token: any) => token.type === 'html_block' &&
-			(isStartRegion(token.content) || isEndRegion(token.content));
-
-
-    const tokens = await this.engine.parse(document.uri, document.getText());
-    const regionMarkers = tokens.filter(isRegionMarker)
-      .map((token) => ({ line: token.map[0], isStart: isStartRegion(token.content) }));
-
-    const nestingStack: { line: number, isStart: boolean }[] = [];
-    return regionMarkers
-      .map((marker) => {
-        if (marker.isStart) {
-          nestingStack.push(marker);
-        } else if (nestingStack.length && nestingStack[nestingStack.length - 1].isStart) {
-          return new vscode.FoldingRange(nestingStack.pop()!.line, marker.line, vscode.FoldingRangeKind.Region);
-        } else {
-          // noop: invalid nesting (i.e. [end, start] or [start, end, end])
-        }
-        return null;
-      })
-      .filter((region: vscode.FoldingRange | null): region is vscode.FoldingRange => !!region);
+export default class AsciidocFoldingRangeProvider implements vscode.FoldingRangeProvider {
+  constructor (
+    private readonly engine: AsciidocEngine
+  ) {
   }
 
-  public async provideFoldingRanges(
+  public provideFoldingRanges (
     document: vscode.TextDocument,
-    _: vscode.FoldingContext,
     _token: vscode.CancellationToken
-  ): Promise<vscode.FoldingRange[]> {
-    const foldables = await Promise.all([
-      this.getRegions(document),
-      this.getHeaderFoldingRanges(document),
-      this.getBlockFoldingRanges(document)]);
-    return [].concat.apply([], foldables).slice(0, rangeLimit);
+  ): vscode.FoldingRange[] {
+    const foldingRanges = this.getHeaderFoldingRanges(document)
+    return foldingRanges.concat(
+      AsciidocFoldingRangeProvider.getConditionalFoldingRanges(document),
+      AsciidocFoldingRangeProvider.getBlockFoldingRanges(document)
+    )
   }
 
-  private async getHeaderFoldingRanges(document: vscode.TextDocument) {
-    const tocProvider = new TableOfContentsProvider(this.engine, document);
-    const toc = await tocProvider.getToc();
-    return toc.map((entry) => {
-      let endLine = entry.location.range.end.line;
-      if (document.lineAt(endLine).isEmptyOrWhitespace && endLine >= entry.line + 1) {
-        endLine = endLine - 1;
+  private static getConditionalFoldingRanges (document: vscode.TextDocument) {
+    const conditionalStartIndexes = []
+    const foldingRanges = []
+    for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex++) {
+      const line = document.lineAt(lineIndex)
+      if (conditionalStartRx.test(line.text)) {
+        conditionalStartIndexes.push(lineIndex)
       }
-      return new vscode.FoldingRange(entry.line, endLine);
-    });
+      if (conditionalEndRx.test(line.text)) {
+        const startIndex = conditionalStartIndexes.pop()
+        if (typeof startIndex !== 'undefined') {
+          foldingRanges.push(new vscode.FoldingRange(
+            startIndex,
+            lineIndex,
+            FoldingRangeKind.Region)
+          )
+        }
+      }
+    }
+    return foldingRanges
   }
 
-  private async getBlockFoldingRanges(document: vscode.TextDocument): Promise<vscode.FoldingRange[]> {
-
-    const isFoldableToken = (token: any) => {
-      switch (token.type) {
-      case 'fence':
-      case 'list_item_open':
-        return token.map[1] > token.map[0];
-
-      case 'html_block':
-        return token.map[1] > token.map[0] + 1;
-
-      default:
-        return false;
+  private static handleOpenBlockFoldingRanges (openBlockIndexes: any[], foldingRanges: any[], lineIndex: number, lineText: string, documentLineCount: number) {
+    if (lineText === '--') {
+      if (openBlockIndexes.length === 0) {
+        openBlockIndexes.push(lineIndex)
+      } else {
+        const startIndex = openBlockIndexes.pop()
+        foldingRanges.push(new vscode.FoldingRange(
+          startIndex,
+          lineIndex,
+          FoldingRangeKind.Region)
+        )
       }
-    };
+    }
+    if (openBlockIndexes.length === 1 && lineIndex === documentLineCount - 1) {
+      // unterminated open block
+      foldingRanges.push(new vscode.FoldingRange(
+        openBlockIndexes.pop(),
+        documentLineCount - 1,
+        FoldingRangeKind.Region)
+      )
+    }
+  }
 
-    const tokens = await this.engine.parse(document.uri, document.getText());
-    const multiLineListItems = tokens.filter(isFoldableToken);
-    return multiLineListItems.map((listItem) => {
-      const start = listItem.map[0];
-      let end = listItem.map[1] - 1;
-      if (document.lineAt(end).isEmptyOrWhitespace && end >= start + 1) {
-        end = end - 1;
+  private static handleCommentBlockFoldingRanges (commentBlockIndexes: any[], foldingRanges: any[], lineIndex: number, lineText: string,
+    documentLineCount: number) {
+    if (commentBlockRx.test(lineText)) {
+      if (commentBlockIndexes.length === 0) {
+        commentBlockIndexes.push(lineIndex)
+      } else {
+        const startIndex = commentBlockIndexes.pop()
+        foldingRanges.push(new vscode.FoldingRange(
+          startIndex,
+          lineIndex,
+          FoldingRangeKind.Region)
+        )
       }
-      return new vscode.FoldingRange(start, end);
-    });
+    }
+    if (commentBlockIndexes.length === 1 && lineIndex === documentLineCount - 1) {
+      // unterminated comment block
+      foldingRanges.push(new vscode.FoldingRange(
+        commentBlockIndexes.pop(),
+        documentLineCount - 1,
+        FoldingRangeKind.Region)
+      )
+    }
+  }
+
+  private static handleSingleLineCommentFoldingRanges (singleLineCommentStartIndexes: any[], foldingRanges: any[], lineIndex: number, lineText: string,
+    documentLineCount: number) {
+    if (lineText.startsWith('//')) {
+      if (singleLineCommentStartIndexes.length === 0 && lineIndex < documentLineCount - 1) {
+        singleLineCommentStartIndexes.push(lineIndex)
+      } else {
+        // comment on last line of the document
+        const startIndex = singleLineCommentStartIndexes.pop()
+        if (lineIndex > startIndex) {
+          foldingRanges.push(new vscode.FoldingRange(
+            startIndex,
+            lineIndex,
+            FoldingRangeKind.Region)
+          )
+        }
+      }
+    } else {
+      if (singleLineCommentStartIndexes.length !== 0) {
+        const startIndex = singleLineCommentStartIndexes.pop()
+        const endIndex = lineIndex - 1
+        if (endIndex > startIndex) {
+          foldingRanges.push(new vscode.FoldingRange(
+            startIndex,
+            endIndex,
+            FoldingRangeKind.Region))
+        }
+      }
+    }
+  }
+
+  private static getBlockFoldingRanges (document: vscode.TextDocument) {
+    const foldingRanges = []
+    const openBlockIndexes = []
+    const commentBlockIndexes = []
+    const singleLineCommentStartIndexes = []
+    const documentLineCount = document.lineCount
+    for (let lineIndex = 0; lineIndex < documentLineCount; lineIndex++) {
+      const line = document.lineAt(lineIndex)
+      const lineText = line.text
+      this.handleOpenBlockFoldingRanges(openBlockIndexes, foldingRanges, lineIndex, lineText, documentLineCount)
+      this.handleCommentBlockFoldingRanges(commentBlockIndexes, foldingRanges, lineIndex, lineText, documentLineCount)
+      this.handleSingleLineCommentFoldingRanges(singleLineCommentStartIndexes, foldingRanges, lineIndex, lineText, documentLineCount)
+    }
+    return foldingRanges
+  }
+
+  private getHeaderFoldingRanges (document: vscode.TextDocument) {
+    const tableOfContentsProvider = new TableOfContentsProvider(this.engine, document)
+    const tableOfContents = tableOfContentsProvider.getToc()
+
+    return tableOfContents.map((entry, startIndex) => {
+      const start = entry.line
+      let end: number | undefined
+      for (let i = startIndex + 1; i < tableOfContents.length; ++i) {
+        if (tableOfContents[i].level <= entry.level) {
+          end = tableOfContents[i].line - 1
+          break
+        }
+      }
+      return new vscode.FoldingRange(
+        start,
+        typeof end === 'number' ? end : document.lineCount - 1,
+        FoldingRangeKind.Region)
+    })
   }
 }
