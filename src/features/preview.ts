@@ -7,18 +7,18 @@ import * as path from 'path'
 
 import { Logger } from '../logger'
 import { AsciidocContentProvider } from './previewContentProvider'
-import { disposeAll } from '../util/dispose'
-
-import * as nls from 'vscode-nls'
+import { disposeAll, Disposable } from '../util/dispose'
+import { WebviewResourceProvider } from '../util/resources'
 import { AsciidocFileTopmostLineMonitor, getVisibleLine } from '../util/topmostLineMonitor'
 import { AsciidocPreviewConfigurationManager } from './previewConfig'
 import { AsciidocContributions } from '../asciidocExtensions'
 import { isAsciidocFile } from '../util/file'
 import { resolveLinkToAsciidocFile } from '../commands/openDocumentLink'
+import * as nls from 'vscode-nls'
 
 const localize = nls.loadMessageBundle()
 
-export class AsciidocPreview {
+export class AsciidocPreview extends Disposable implements WebviewResourceProvider {
   public static viewType = 'asciidoc.preview'
 
   private _resource: vscode.Uri
@@ -72,8 +72,8 @@ export class AsciidocPreview {
 
   public static create (
     resource: vscode.Uri,
-    previewColumn: vscode.ViewColumn,
     resourceColumn: vscode.ViewColumn,
+    previewColumn: vscode.ViewColumn,
     locked: boolean,
     contentProvider: AsciidocContentProvider,
     previewConfigurations: AsciidocPreviewConfigurationManager,
@@ -110,6 +110,7 @@ export class AsciidocPreview {
     topmostLineMonitor: AsciidocFileTopmostLineMonitor,
     private readonly _contributions: AsciidocContributions
   ) {
+    super()
     this._resource = resource
 
     this._locked = locked
@@ -152,7 +153,7 @@ export class AsciidocPreview {
           break
 
         case 'previewStyleLoadError':
-          vscode.window.showWarningMessage(localize('onPreviewStyleLoadError', "Could not load 'asciidoc.styles': {0}", e.body.unloadedStyles.join(', ')))
+          vscode.window.showWarningMessage(localize('preview.styleLoadError.message', "Could not load 'asciidoc.styles': {0}", e.body.unloadedStyles.join(', ')))
           break
       }
     }, null, this.disposables)
@@ -202,17 +203,15 @@ export class AsciidocPreview {
 
   public get state () {
     return {
-      resource: this.resource.toString(),
+      resource: this._resource.toString(),
       locked: this._locked,
       line: this.line,
       imageInfo: this.imageInfo,
     }
   }
 
-  public dispose () {
-    if (this._disposed) {
-      return
-    }
+  override dispose () {
+    super.dispose()
 
     this._disposed = true
     this._onDisposeEmitter.fire()
@@ -312,8 +311,8 @@ export class AsciidocPreview {
 
   private static getPreviewTitle (resource: vscode.Uri, locked: boolean): string {
     return locked
-      ? localize('lockedPreviewTitle', '[Preview] {0}', path.basename(resource.fsPath))
-      : localize('previewTitle', 'Preview {0}', path.basename(resource.fsPath))
+      ? localize('preview.locked.title', '[Preview] {0}', path.basename(resource.fsPath))
+      : localize('preview.unlocked.title', 'Preview {0}', path.basename(resource.fsPath))
   }
 
   private updateForView (resource: vscode.Uri, topLine: number | undefined) {
@@ -370,7 +369,7 @@ export class AsciidocPreview {
     }
     this.editor.iconPath = this.iconPath
     this.editor.webview.options = AsciidocPreview.getWebviewOptions(resource, this._contributions)
-    const content = await this._contentProvider.providePreviewHTML(document, this._previewConfigurations, this.line, this.state, this.editor)
+    const content = await this._contentProvider.providePreviewHTML(document, this._previewConfigurations, this.editor)
     this.editor.webview.html = content
   }
 
@@ -442,12 +441,12 @@ export class AsciidocPreview {
       // Relative path. Resolve relative to the file
       hrefPath = path.join(path.dirname(this.resource.fsPath), hrefPath)
     }
-    return { path: hrefPath, fragment: fragment }
+    return { path: hrefPath, fragment }
   }
 
   private async onDidClickPreviewLink (href: string) {
     const targetResource = this.resolveDocumentLink(href)
-    const openLinks = this.config.get<string>('preview.openAsciiDocLinks', 'inPreview')
+    const openLinks = this.config.get<string>('preview.openLinksToAsciidocFiles', 'inPreview')
     if (openLinks === 'inPreview') {
       const asciidocLink = await resolveLinkToAsciidocFile(targetResource.path)
       if (asciidocLink) {
@@ -460,6 +459,14 @@ export class AsciidocPreview {
 
   private async onCacheImageSizes (imageInfo: { id: string, width: number, height: number }[]) {
     this.imageInfo = imageInfo
+  }
+
+  asWebviewUri (resource: vscode.Uri) {
+    return this.editor.webview.asWebviewUri(resource)
+  }
+
+  get cspSource () {
+    return this.editor.webview.cspSource
   }
 }
 

@@ -1,0 +1,5 @@
+{
+  "preview.locked.title": "[プレビュー] {0}",
+  "preview.unlocked.title": "プレビュー {0}",
+  "preview.styleLoadError.message": "'asciidoc.styles'のロードができませんでした。: {0}"
+}

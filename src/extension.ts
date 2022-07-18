@@ -1,7 +1,8 @@
 /*---------------------------------------------------------------------------------------------
   *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-
+// This must be the first import in the main entry file
+import './i18n'
 import * as vscode from 'vscode'
 import { CommandManager } from './commandManager'
 import * as commands from './commands/index'
@@ -13,7 +14,7 @@ import AsciidocWorkspaceSymbolProvider from './features/workspaceSymbolProvider'
 import { Logger } from './logger'
 import { AsciidocEngine } from './asciidocEngine'
 import { getAsciidocExtensionContributions } from './asciidocExtensions'
-import { ExtensionContentSecurityPolicyArbiter, PreviewSecuritySelector } from './security'
+import { AsciidoctorExtensionsSecurityPolicyArbiter, AsciidoctorExtensionsTrustModeSelector, ExtensionContentSecurityPolicyArbiter, PreviewSecuritySelector } from './security'
 import { AsciidocFileIncludeAutoCompletionMonitor } from './util/includeAutoCompletion'
 import { AttributeReferenceProvider } from './features/attributeReferenceProvider'
 import { BuiltinDocumentAttributeProvider } from './features/builtinDocumentAttributeProvider'
@@ -23,10 +24,12 @@ export function activate (context: vscode.ExtensionContext) {
   const contributions = getAsciidocExtensionContributions(context)
 
   const cspArbiter = new ExtensionContentSecurityPolicyArbiter(context.globalState, context.workspaceState)
+  const aespArbiter = new AsciidoctorExtensionsSecurityPolicyArbiter(context)
+  const asciidocExtSelector = new AsciidoctorExtensionsTrustModeSelector(aespArbiter)
 
   const errorCollection = vscode.languages.createDiagnosticCollection('asciidoc')
 
-  const engine = new AsciidocEngine(contributions, errorCollection)
+  const engine = new AsciidocEngine(contributions, aespArbiter, errorCollection)
   const logger = new Logger()
   logger.log('Extension was started')
 
@@ -35,7 +38,7 @@ export function activate (context: vscode.ExtensionContext) {
     { language: 'asciidoc', scheme: 'untitled' },
   ]
 
-  const contentProvider = new AsciidocContentProvider(engine, context, cspArbiter, contributions, logger)
+  const contentProvider = new AsciidocContentProvider(engine, context)
   const symbolProvider = new AdocDocumentSymbolProvider(engine, null)
   const previewManager = new AsciidocPreviewManager(contentProvider, logger, contributions)
   context.subscriptions.push(previewManager)
@@ -58,25 +61,34 @@ export function activate (context: vscode.ExtensionContext) {
   commandManager.register(new commands.RefreshPreviewCommand(previewManager))
   commandManager.register(new commands.MoveCursorToPositionCommand())
   commandManager.register(new commands.ShowPreviewSecuritySelectorCommand(previewSecuritySelector, previewManager))
+  commandManager.register(new commands.ShowAsciidoctorExtensionsTrustModeSelectorCommand(asciidocExtSelector))
   commandManager.register(new commands.OpenDocumentLinkCommand(engine))
-  commandManager.register(new commands.ExportAsPDF(engine, logger))
+  commandManager.register(new commands.ExportAsPDF(engine, context, logger))
   commandManager.register(new commands.PasteImage())
   commandManager.register(new commands.ToggleLockCommand(previewManager))
   commandManager.register(new commands.ShowPreviewCommand(previewManager))
   commandManager.register(new commands.SaveHTML(engine))
   commandManager.register(new commands.SaveDocbook(engine))
 
-  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(() => {
+  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async (e) => {
+    if (e.affectsConfiguration('asciidoc.registerAsciidoctorExtensions')) {
+      if (vscode.workspace.getConfiguration('asciidoc', null).get('registerAsciidoctorExtensions') === false) {
+        // reset
+        await context.workspaceState.update(aespArbiter.trustAsciidoctorExtensionsAuthorsKey, undefined)
+      }
+    }
     logger.updateConfiguration()
     previewManager.updateConfiguration()
-    previewManager.refresh(true)
   }))
 
   context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(() => {
     errorCollection.clear()
   }))
 
-  context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(() => {
-    previewManager.refresh(true)
+  context.subscriptions.push(vscode.workspace.onDidSaveTextDocument((e) => {
+    // when the workspace configuration is updated, the file .vscode/settings.json since we are also listening onDidChangeConfiguration we can safely ignore this event
+    if (!e.uri.path.endsWith('.vscode/settings.json')) {
+      previewManager.refresh(true)
+    }
   }))
 }

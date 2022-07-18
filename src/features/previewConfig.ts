@@ -11,8 +11,6 @@ export class AsciidocPreviewConfiguration {
 
   public readonly scrollBeyondLastLine: boolean
   public readonly wordWrap: boolean
-  public readonly previewFrontMatter: string
-  public readonly lineBreaks: boolean
   public readonly doubleClickToSwitchToEditor: boolean
   public readonly scrollEditorWithPreview: boolean
   public readonly scrollPreviewWithEditor: boolean
@@ -23,6 +21,8 @@ export class AsciidocPreviewConfiguration {
   public readonly fontFamily: string | undefined
   public readonly styles: string[]
   public readonly refreshInterval: number
+  public readonly useEditorStylesheet: boolean
+  public readonly previewStyle: string
 
   private constructor (resource: vscode.Uri) {
     const editorConfig = vscode.workspace.getConfiguration('editor', resource)
@@ -36,10 +36,8 @@ export class AsciidocPreviewConfiguration {
       this.wordWrap = asciidocEditorConfig['editor.wordWrap'] !== 'off'
     }
 
-    this.previewFrontMatter = asciidocConfig.get<string>('previewFrontMatter', 'hide')
     this.scrollPreviewWithEditor = !!asciidocConfig.get<boolean>('preview.scrollPreviewWithEditor', true)
     this.scrollEditorWithPreview = !!asciidocConfig.get<boolean>('preview.scrollEditorWithPreview', true)
-    this.lineBreaks = !!asciidocConfig.get<boolean>('preview.breaks', false)
     this.doubleClickToSwitchToEditor = !!asciidocConfig.get<boolean>('preview.doubleClickToSwitchToEditor', true)
     this.markEditorSelection = !!asciidocConfig.get<boolean>('preview.markEditorSelection', true)
 
@@ -47,7 +45,9 @@ export class AsciidocPreviewConfiguration {
     this.fontSize = Math.max(8, +asciidocConfig.get<number>('preview.fontSize', NaN))
     this.lineHeight = Math.max(0.6, +asciidocConfig.get<number>('preview.lineHeight', NaN))
 
-    this.styles = asciidocConfig.get<string[]>('styles', [])
+    this.styles = asciidocConfig.get<string[]>('styles', []) // REMIND: unused, we should either use it or remove it!
+    this.useEditorStylesheet = asciidocConfig.get<boolean>('preview.useEditorStyle', false)
+    this.previewStyle = asciidocConfig.get<string>('preview.style', '')
     this.refreshInterval = Math.max(0.6, +asciidocConfig.get<number>('preview.refreshInterval', NaN))
   }
 

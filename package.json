@@ -2,7 +2,7 @@
 	"name": "asciidoctor-vscode",
 	"displayName": "%displayName%",
 	"description": "%description%",
-	"version": "2.9.5",
+	"version": "3.0.1-dev",
 	"publisher": "asciidoctor",
 	"author": "João Pinto <lamego.pinto@gmail.com>",
 	"license": "MIT",
@@ -39,6 +39,7 @@
 		"onCommand:asciidoc.showLockedPreviewToSide",
 		"onCommand:asciidoc.showSource",
 		"onCommand:asciidoc.showPreviewSecuritySelector",
+		"onCommand:asciidoc.showAsciidoctorExtensionsTrustModeSelector",
 		"onWebviewPanel:asciidoc.preview"
 	],
 	"contributes": {
@@ -47,7 +48,7 @@
 				"id": "asciidoc",
 				"aliases": [
 					"AsciiDoc",
-					"AsciiDoc(tor)"
+					"Asciidoctor"
 				],
 				"extensions": [
 					".adoc",
@@ -111,6 +112,11 @@
 				"category": "AsciiDoc"
 			},
 			{
+				"command": "asciidoc.showAsciidoctorExtensionsTrustModeSelector",
+				"title": "%asciidoc.showAsciidoctorExtensionsTrustModeSelector.title%",
+				"category": "AsciiDoc"
+			},
+			{
 				"command": "asciidoc.preview.refresh",
 				"title": "%asciidoc.preview.refresh.title%",
 				"category": "AsciiDoc"
@@ -158,6 +164,11 @@
 				},
 				{
 					"command": "asciidoc.showPreviewSecuritySelector",
+					"when": "asciidocPreviewFocus",
+					"group": "1_asciidoc"
+				},
+				{
+					"command": "asciidoc.showAsciidoctorExtensionsTrustModeSelector",
 					"when": "asciidocPreviewFocus",
 					"group": "1_asciidoc"
 				}
@@ -218,6 +229,10 @@
 					"when": "editorLangId == asciidoc || asciidocPreviewFocus"
 				},
 				{
+					"command": "asciidoc.showAsciidoctorExtensionsTrustModeSelector",
+					"when": "editorLangId == asciidoc || asciidocPreviewFocus"
+				},
+				{
 					"command": "asciidoc.preview.toggleLock",
 					"when": "asciidocPreviewFocus"
 				}
@@ -249,166 +264,271 @@
 				"when": "editorLangId == asciidoc"
 			}
 		],
-		"configuration": {
-			"type": "object",
-			"title": "asciidoc",
-			"order": 21,
-			"properties": {
-				"asciidoc.asciidoctorpdf_command": {
-					"type": "string",
-					"default": "asciidoctor-pdf",
-					"description": "%asciidoc.asciidoctorpdf_command.desc%"
-				},
-				"asciidoc.previewFrontMatter": {
-					"type": "string",
-					"enum": [
-						"hide",
-						"show"
-					],
-					"default": "hide",
-					"description": "%asciidoc.previewFrontMatter.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.style": {
-					"type": "string",
-					"default": "",
-					"description": "%asciidoc.preview.style.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.attributes": {
-					"type": "object",
-					"default": {},
-					"description": "%asciidoc.preview.attributes.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.breaks": {
-					"type": "boolean",
-					"default": false,
-					"description": "%asciidoc.preview.breaks.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.linkify": {
-					"type": "boolean",
-					"default": true,
-					"description": "%asciidoc.preview.linkify.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.fontFamily": {
-					"type": "string",
-					"default": "-apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'HelveticaNeue-Light', 'Ubuntu', 'Droid Sans', sans-serif",
-					"description": "%asciidoc.preview.fontFamily.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.fontSize": {
-					"type": "number",
-					"default": 14,
-					"description": "%asciidoc.preview.fontSize.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.lineHeight": {
-					"type": "number",
-					"default": 1.6,
-					"description": "%asciidoc.preview.lineHeight.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.useEditorStyle": {
-					"type": "boolean",
-					"default": true,
-					"description": "%asciidoc.preview.useEditorStyle.desc%"
-				},
-				"asciidoc.preview.refreshInterval": {
-					"type": "number",
-					"default": 2000,
-					"description": "%asciidoc.preview.refreshInterval.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.scrollPreviewWithEditor": {
-					"type": "boolean",
-					"default": true,
-					"description": "%asciidoc.preview.scrollPreviewWithEditor.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.scrollPreviewWithEditorSelection": {
-					"type": "boolean",
-					"default": true,
-					"description": "%asciidoc.preview.scrollPreviewWithEditorSelection.desc%",
-					"deprecationMessage": "%asciidoc.preview.scrollPreviewWithEditorSelection.deprecationMessage%"
-				},
-				"asciidoc.preview.markEditorSelection": {
-					"type": "boolean",
-					"default": true,
-					"description": "%asciidoc.preview.markEditorSelection.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.scrollEditorWithPreview": {
-					"type": "boolean",
-					"default": true,
-					"description": "%asciidoc.preview.scrollEditorWithPreview.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.doubleClickToSwitchToEditor": {
-					"type": "boolean",
-					"default": true,
-					"description": "%asciidoc.preview.doubleClickToSwitchToEditor.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.preview.openAsciiDocLinks": {
-					"type": "string",
-					"default": "inPreview",
-					"description": "%asciidoc.preview.openAsciiDocLinks.desc%",
-					"scope": "resource",
-					"enum": [
-						"inPreview",
-						"inEditor"
-					],
-					"enumDescriptions": [
-						"%asciidoc.preview.openAsciiDocLinks.inPreview%",
-						"%asciidoc.preview.openAsciiDocLinks.inEditor%"
-					]
-				},
-				"asciidoc.trace": {
-					"type": "string",
-					"enum": [
-						"off",
-						"verbose"
-					],
-					"default": "off",
-					"description": "%asciidoc.trace.desc%",
-					"scope": "window"
-				},
-				"asciidoc.use_asciidoctorpdf": {
-					"type": "boolean",
-					"default": false,
-					"description": "%asciidoc.use_asciidoctorpdf.desc%"
-				},
-				"asciidoc.use_kroki": {
-					"type": "boolean",
-					"default": false,
-					"description": "%asciidoc.use_kroki.desc%"
-				},
-				"asciidoc.wkhtmltopdf_path": {
-					"type": "string",
-					"default": "",
-					"description": "%asciidoc.wkhtmltopdf_path.desc%",
-					"scope": "resource"
-				},
-				"asciidoc.forceUnixStyleSeparator": {
-					"type": "boolean",
-					"default": true,
-					"description": "%asciidoc.forceUnixStyleSeparator.desc%"
-				},
-				"asciidoc.enableErrorDiagnostics": {
-					"type": "boolean",
-					"default": true,
-					"description": "%asciidoc.enableErrorDiagnostics.desc%"
-				},
-				"asciidoc.useWorkspaceRoot": {
-					"type": "boolean",
-					"default": false,
-					"description": "%asciidoc.useWorkspaceRoot.desc%"
+		"configuration": [
+			{
+				"order": 20,
+				"id": "preview",
+				"title": "%asciidoc.preview.title%",
+				"properties": {
+					"asciidoc.preview.asciidoctorAttributes": {
+						"type": "object",
+						"default": {},
+						"markdownDescription": "%asciidoc.preview.asciidoctorAttributes.desc%",
+						"order": 1,
+						"scope": "resource"
+					},
+					"asciidoc.preview.refreshInterval": {
+						"type": "number",
+						"default": 2000,
+						"markdownDescription": "%asciidoc.preview.refreshInterval.desc%",
+						"order": 2,
+						"scope": "resource"
+					},
+					"asciidoc.preview.style": {
+						"type": "string",
+						"default": "",
+						"markdownDescription": "%asciidoc.preview.style.desc%",
+						"order": 3,
+						"scope": "resource"
+					},
+					"asciidoc.preview.useEditorStyle": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "%asciidoc.preview.useEditorStyle.desc%",
+						"order": 4,
+						"scope": "resource"
+					},
+					"asciidoc.preview.fontFamily": {
+						"type": "string",
+						"default": "-apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'HelveticaNeue-Light', 'Ubuntu', 'Droid Sans', sans-serif",
+						"markdownDescription": "%asciidoc.preview.fontFamily.desc%",
+						"order": 5,
+						"scope": "resource"
+					},
+					"asciidoc.preview.fontSize": {
+						"type": "number",
+						"default": 14,
+						"markdownDescription": "%asciidoc.preview.fontSize.desc%",
+						"order": 6,
+						"scope": "resource"
+					},
+					"asciidoc.preview.lineHeight": {
+						"type": "number",
+						"default": 1.6,
+						"markdownDescription": "%asciidoc.preview.lineHeight.desc%",
+						"order": 7,
+						"scope": "resource"
+					},
+					"asciidoc.preview.scrollPreviewWithEditor": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "%asciidoc.preview.scrollPreviewWithEditor.desc%",
+						"order": 8,
+						"scope": "resource"
+					},
+					"asciidoc.preview.scrollEditorWithPreview": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "%asciidoc.preview.scrollEditorWithPreview.desc%",
+						"order": 9,
+						"scope": "resource"
+					},
+					"asciidoc.preview.markEditorSelection": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "%asciidoc.preview.markEditorSelection.desc%",
+						"order": 10,
+						"scope": "resource"
+					},
+					"asciidoc.preview.doubleClickToSwitchToEditor": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "%asciidoc.preview.doubleClickToSwitchToEditor.desc%",
+						"order": 11,
+						"scope": "resource"
+					},
+					"asciidoc.preview.openLinksToAsciidocFiles": {
+						"type": "string",
+						"default": "inPreview",
+						"markdownDescription": "%asciidoc.preview.openLinksToAsciidocFiles.desc%",
+						"enum": [
+							"inPreview",
+							"inEditor"
+						],
+						"enumDescriptions": [
+							"%asciidoc.preview.openLinksToAsciidocFiles.inPreview%",
+							"%asciidoc.preview.openLinksToAsciidocFiles.inEditor%"
+						],
+						"order": 12,
+						"scope": "resource"
+					},
+					"asciidoc.preview.openAsciiDocLinks": {
+						"type": "string",
+						"default": "inPreview",
+						"markdownDescription": "%asciidoc.preview.openAsciiDocLinks.desc%",
+						"markdownDeprecationMessage": "%asciidoc.preview.openAsciiDocLinks.deprecationMessage%",
+						"enum": [
+							"inPreview",
+							"inEditor"
+						],
+						"enumDescriptions": [
+							"%asciidoc.preview.openAsciiDocLinks.inPreview%",
+							"%asciidoc.preview.openAsciiDocLinks.inEditor%"
+						],
+						"scope": "resource"
+					},
+					"asciidoc.use_kroki": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "%asciidoc.use_kroki.desc%",
+						"markdownDeprecationMessage": "%asciidoc.use_kroki.deprecationMessage%",
+						"scope": "resource"
+					},
+					"asciidoc.useWorkspaceRoot": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "%asciidoc.useWorkspaceRoot.desc%",
+						"markdownDeprecationMessage": "%asciidoc.useWorkspaceRoot.deprecationMessage%",
+						"scope": "resource"
+					},
+					"asciidoc.wkhtmltopdf_path": {
+						"type": "string",
+						"default": "",
+						"markdownDescription": "%asciidoc.wkhtmltopdf_path.desc%",
+						"markdownDeprecationMessage": "%asciidoc.wkhtmltopdf_path.deprecationMessage%",
+						"scope": "resource"
+					},
+					"asciidoc.asciidoctorpdf_command": {
+						"type": "string",
+						"default": "asciidoctor-pdf",
+						"markdownDescription": "%asciidoc.asciidoctorpdf_command.desc%",
+						"markdownDeprecationMessage": "%asciidoc.asciidoctorpdf_command.deprecationMessage%",
+						"scope": "resource"
+					},
+					"asciidoc.use_asciidoctorpdf": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "%asciidoc.use_asciidoctorpdf.desc%",
+						"markdownDeprecationMessage": "%asciidoc.use_asciidoctorpdf.deprecationMessage%",
+						"scope": "resource"
+					}
+				}
+			},
+			{
+				"order": 21,
+				"id": "pdf",
+				"title": "%asciidoc.pdf.title%",
+				"properties": {
+					"asciidoc.pdf.engine": {
+						"type": "string",
+						"default": "asciidoctor-pdf",
+						"markdownDescription": "%asciidoc.pdf.engine.desc%",
+						"enum": [
+							"asciidoctor-pdf",
+							"wkhtmltopdf"
+						],
+						"enumDescriptions": [
+							"%asciidoc.pdf.engine.asciidoctorPdf.desc%",
+							"%asciidoc.pdf.engine.wkhtmltopdf.desc%"
+						],
+						"order": 1,
+						"scope": "resource"
+					},
+					"asciidoc.pdf.asciidoctorPdfCommandPath": {
+						"type": "string",
+						"default": "",
+						"markdownDescription": "%asciidoc.pdf.asciidoctorPdfCommandPath.desc%",
+						"order": 2,
+						"scope": "resource"
+					},
+					"asciidoc.pdf.asciidoctorPdfCommandArgs": {
+						"type": "array",
+						"markdownDescription": "%asciidoc.pdf.asciidoctorPdfCommandArgs.desc%",
+						"items": {
+							"type": "string"
+						},
+						"uniqueItems": false,
+						"order": 3,
+						"scope": "resource"
+					},
+					"asciidoc.pdf.wkhtmltopdfCommandPath": {
+						"type": "string",
+						"markdownDescription": "%asciidoc.pdf.wkhtmltopdfCommandPath.desc%",
+						"order": 4,
+						"scope": "resource"
+					},
+					"asciidoc.pdf.wkhtmltopdfCommandArgs": {
+						"type": "array",
+						"markdownDescription": "%asciidoc.pdf.wkhtmltopdfCommandArgs.desc%",
+						"items": {
+							"type": "string"
+						},
+						"uniqueItems": false,
+						"order": 5,
+						"scope": "resource"
+					}
+				}
+			},
+			{
+				"order": 22,
+				"id": "extensions",
+				"title": "%asciidoc.extensions.title%",
+				"properties": {
+					"asciidoc.extensions.enableKroki": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "%asciidoc.extensions.enableKroki.desc%",
+						"order": 1,
+						"scope": "resource"
+					},
+					"asciidoc.extensions.registerWorkspaceExtensions": {
+						"type": "boolean",
+						"default": false,
+						"order": 2,
+						"markdownDescription": "%asciidoc.extensions.registerWorkspaceExtensions.desc%"
+					}
+				}
+			},
+			{
+				"order": 23,
+				"id": "common",
+				"title": "%asciidoc.common.title%",
+				"properties": {
+					"asciidoc.useWorkspaceRootAsBaseDirectory": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "%asciidoc.useWorkspaceRootAsBaseDirectory.desc%",
+						"order": 1,
+						"scope": "resource"
+					}
+				}
+			},
+			{
+				"order": 24,
+				"id": "debug",
+				"title": "%asciidoc.debug.title%",
+				"properties": {
+					"asciidoc.debug.trace": {
+						"type": "string",
+						"enum": [
+							"off",
+							"verbose"
+						],
+						"default": "off",
+						"markdownDescription": "%asciidoc.debug.trace.desc%",
+						"order": 1,
+						"scope": "window"
+					},
+					"asciidoc.debug.enableErrorDiagnostics": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "%asciidoc.enableErrorDiagnostics.desc%",
+						"order": 2,
+						"scope": "resource"
+					}
 				}
 			}
-		},
+		],
 		"configurationDefaults": {
 			"[asciidoc]": {
 				"editor.wordWrap": "on",
@@ -423,13 +543,22 @@
 		]
 	},
 	"scripts": {
-		"copy-assets": "cp node_modules/@highlightjs/cdn-assets/highlight.min.js media/highlightjs && cp -r node_modules/@highlightjs/cdn-assets/languages media/highlightjs && cp -r node_modules/@highlightjs/cdn-assets/styles media/highlightjs",
+		"copy-fonts:all": "npm run copy-fonts:noto-serif && npm run copy-fonts:open-sans && npm run copy-fonts:roboto-mono",
+		"copy-fonts:noto-serif": "cp -r node_modules/@fontsource/noto-serif/files/noto-serif-all-400-italic.woff media/fonts && cp -r node_modules/@fontsource/noto-serif/files/noto-serif-all-400-normal.woff media/fonts && cp -r node_modules/@fontsource/noto-serif/files/noto-serif-all-700-normal.woff media/fonts && cp -r node_modules/@fontsource/noto-serif/files/noto-serif-all-700-italic.woff media/fonts",
+		"copy-fonts:open-sans": "cp -r node_modules/@fontsource/open-sans/files/open-sans-latin-variable-full-italic.woff2 media/fonts && cp -r node_modules/@fontsource/open-sans/files/open-sans-latin-variable-full-normal.woff2 media/fonts",
+		"copy-fonts:roboto-mono": "cp -r node_modules/@fontsource/roboto-mono/files/roboto-mono-latin-variable-wghtOnly-italic.woff2 media/fonts && cp -r node_modules/@fontsource/roboto-mono/files/roboto-mono-latin-variable-wghtOnly-normal.woff2 media/fonts",
+		"copy-font-awesome": "cp -r node_modules/font-awesome/fonts media/font-awesome && cp -r node_modules/font-awesome/css media/font-awesome",
+		"copy-mathjax": "cp -r node_modules/mathjax media",
+		"copy-highlightjs": "cp node_modules/@highlightjs/cdn-assets/highlight.min.js media/highlightjs && cp -r node_modules/@highlightjs/cdn-assets/languages media/highlightjs && cp -r node_modules/@highlightjs/cdn-assets/styles media/highlightjs",
+		"copy-assets": "npm run copy-fonts:all && npm run copy-font-awesome && npm run copy-mathjax && npm run copy-highlightjs",
+		"i18n:generate-package-nls": "node tasks/i18n/generate-package-nls.js",
+		"i18n:generate-localize-files": "node tasks/i18n/generate-localize-files.js",
 		"dev": "npm run build",
-		"build": "npm run copy-assets && npm run build-ext && npm run build-preview",
+		"build": "npm run copy-assets && npm run build-ext && npm run i18n:generate-localize-files && npm run build-preview",
 		"build-web": "webpack --config extension-browser.webpack.config --mode none",
 		"build-preview": "webpack --config extension-preview.webpack.config --mode production",
 		"build-ext": "tsc -p ./",
-		"package": "npm run build && npm run build-web && vsce package",
+		"package": "npm run build && npm run build-web && npm run i18n:generate-package-nls && vsce package",
 		"deploy": "vsce publish -p",
 		"lint": "eslint 'src/**/*.ts' 'preview-src/**/*.ts' --format unix",
 		"lint:fix": "npm run lint -- --fix",
@@ -437,6 +566,9 @@
 		"test": "node ./dist/src/test/runTest.js"
 	},
 	"devDependencies": {
+		"@fontsource/noto-serif": "^4.5.7",
+		"@fontsource/open-sans": "^4.5.8",
+		"@fontsource/roboto-mono": "^4.5.5",
 		"@highlightjs/cdn-assets": "~11.4",
 		"@types/lodash.throttle": "~4.1",
 		"@types/mocha": "~9.1",
@@ -446,18 +578,24 @@
 		"@typescript-eslint/parser": "5.11.0",
 		"copy-webpack-plugin": "10.2.4",
 		"eslint": "8.8.0",
-		"eslint-config-standard": "16.0.3",
+		"eslint-config-standard": "^17.0.0",
 		"eslint-plugin-import": "2.25.4",
+		"eslint-plugin-n": "^15.2.4",
 		"eslint-plugin-node": "11.1.0",
 		"eslint-plugin-promise": "6.0.0",
+		"font-awesome": "^4.7.0",
+		"gulp": "^4.0.2",
 		"lodash.throttle": "4.1.1",
+		"mathjax": "^2.7.9",
 		"mocha": "9.2.0",
 		"mocha-junit-reporter": "2.0.2",
 		"mocha-multi-reporters": "1.5.1",
 		"path-browserify": "1.0.1",
+		"semver": "^7.3.7",
 		"ts-loader": "9.2.6",
 		"typescript": "4.5.5",
-		"vsce": "2.6.7",
+		"vsce": "^2.9.2",
+		"vscode-nls-dev": "^4.0.0",
 		"vscode-test": "1.6.1",
 		"webpack": "5.68.0",
 		"webpack-cli": "4.9.2"
@@ -467,9 +605,6 @@
 		"@asciidoctor/docbook-converter": "2.0.0",
 		"@orcid/bibtex-parse-js": "0.0.25",
 		"asciidoctor-kroki": "0.15.4",
-		"file-url": "4.0.0",
-		"follow-redirects": "1.14.8",
-		"https-proxy-agent": "5.0.0",
 		"uuid": "8.3.2",
 		"vscode-nls": "5.0.0"
 	}
