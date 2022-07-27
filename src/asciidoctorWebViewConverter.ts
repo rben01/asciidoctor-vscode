@@ -1,11 +1,12 @@
 import vscode from 'vscode'
-import { dirname, isAbsolute, join } from './util/path'
+import * as uri from 'vscode-uri'
 import { AsciidocPreviewSecurityLevel, ContentSecurityPolicyArbiter } from './security'
 import { AsciidocPreviewConfiguration, AsciidocPreviewConfigurationManager } from './features/previewConfig'
 import { WebviewResourceProvider } from './util/resources'
 import { Asciidoctor } from '@asciidoctor/core'
 import { SkinnyTextDocument } from './util/document'
 import * as nls from 'vscode-nls'
+import { AsciidocContributionProvider } from './asciidocExtensions'
 
 const localize = nls.loadMessageBundle()
 
@@ -53,21 +54,22 @@ const previewStrings = {
  * @param securityLevel
  * @param nonce
  */
-function getCspForResource (securityLevel: AsciidocPreviewSecurityLevel, nonce: string): string {
+function getCspForResource (provider: WebviewResourceProvider, securityLevel: AsciidocPreviewSecurityLevel, nonce: string): string {
+  const rule = provider.cspSource
   const highlightjsInlineScriptHash = 'sha256-ZrDBcrmObbqhVV/Mag2fT/y08UJGejdW7UWyEsi4DXw='
   switch (securityLevel) {
     case AsciidocPreviewSecurityLevel.AllowInsecureContent:
-      return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: http: https: data:; media-src vscode-resource: http: https: data:; script-src vscode-resource: 'nonce-${nonce}' '${highlightjsInlineScriptHash}'; style-src vscode-resource: 'unsafe-inline' http: https: data:; font-src vscode-resource: http: https: data:;">`
+      return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' ${rule} http: https: data:; media-src 'self' ${rule} http: https: data:; script-src 'nonce-${nonce}' '${highlightjsInlineScriptHash}'; style-src 'self' ${rule} 'unsafe-inline' http: https: data:; font-src 'self' ${rule} http: https: data:;">`
 
     case AsciidocPreviewSecurityLevel.AllowInsecureLocalContent:
-      return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https: data: http://localhost:* http://127.0.0.1:*; media-src vscode-resource: https: data: http://localhost:* http://127.0.0.1:*; script-src vscode-resource: 'nonce-${nonce}' '${highlightjsInlineScriptHash}'; style-src vscode-resource: 'unsafe-inline' https: data: http://localhost:* http://127.0.0.1:*; font-src vscode-resource: https: data: http://localhost:* http://127.0.0.1:*;">`
+      return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' ${rule} https: data: http://localhost:* http://127.0.0.1:*; media-src 'self' ${rule} https: data: http://localhost:* http://127.0.0.1:*; script-src 'nonce-${nonce}' '${highlightjsInlineScriptHash}'; style-src 'self' ${rule} 'unsafe-inline' https: data: http://localhost:* http://127.0.0.1:*; font-src 'self' ${rule} https: data: http://localhost:* http://127.0.0.1:*;">`
 
     case AsciidocPreviewSecurityLevel.AllowScriptsAndAllContent:
-      return ''
+      return '<meta http-equiv="Content-Security-Policy" content="">'
 
     case AsciidocPreviewSecurityLevel.Strict:
     default:
-      return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https: data:; media-src vscode-resource: https: data:; script-src vscode-resource: 'nonce-${nonce}' '${highlightjsInlineScriptHash}'; style-src vscode-resource: 'unsafe-inline' https: data:; font-src vscode-resource: https: data:;">`
+      return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' ${rule} https: data:; media-src 'self' ${rule} https: data:; script-src 'nonce-${nonce}' '${highlightjsInlineScriptHash}'; style-src 'self' ${rule} 'unsafe-inline' https: data:; font-src 'self' ${rule} https: data:;">`
   }
 }
 
@@ -92,6 +94,7 @@ export class AsciidoctorWebViewConverter {
     private readonly context: vscode.ExtensionContext,
     private readonly editor: vscode.WebviewPanel,
     cspArbiter: ContentSecurityPolicyArbiter,
+    private readonly contributionProvider: AsciidocContributionProvider,
     previewConfigurations: AsciidocPreviewConfigurationManager,
     line: number | undefined = undefined,
     state?: any
@@ -109,6 +112,7 @@ export class AsciidoctorWebViewConverter {
       scrollPreviewWithEditor: this.config.scrollPreviewWithEditor,
       scrollEditorWithPreview: this.config.scrollEditorWithPreview,
       doubleClickToSwitchToEditor: this.config.doubleClickToSwitchToEditor,
+      preservePreviewWhenHidden: this.config.preservePreviewWhenHidden,
       disableSecurityWarnings: cspArbiter.shouldDisableSecurityWarnings(),
     }
     this.state = state || {}
@@ -125,7 +129,8 @@ export class AsciidoctorWebViewConverter {
     if (nodeName === 'document') {
       // Content Security Policy
       const nonce = new Date().getTime() + '' + new Date().getMilliseconds()
-      const csp = getCspForResource(this.securityLevel, nonce)
+      const resourceProvider = this.editor.webview
+      const csp = getCspForResource(resourceProvider, this.securityLevel, nonce)
       const content = node.getContent()
       const syntaxHighlighter = node.$syntax_highlighter()
       let assetUriScheme = node.getAttribute('asset-uri-scheme', 'https')
@@ -138,7 +143,6 @@ export class AsciidoctorWebViewConverter {
       const syntaxHighlighterFooterContent = (syntaxHighlighter !== Opal.nil && syntaxHighlighter['$docinfo?']('footer'))
         ? syntaxHighlighter.$docinfo('footer', node, {})
         : ''
-      const resourceProvider = this.editor.webview
       const headerDocinfo = node.getDocinfo('header')
       const footerDocinfo = node.getDocinfo('footer')
       return `<!DOCTYPE html>
@@ -154,7 +158,7 @@ export class AsciidoctorWebViewConverter {
         ${this.getStyles(node, resourceProvider, this.textDocument.uri, this.config, this.state)}
         ${syntaxHighlighterHeadContent}
         ${node.getDocinfo()}
-        <base href="${resourceProvider.asWebviewUri(this.textDocument.uri).toString(true)}">
+        <base href="${resourceProvider.asWebviewUri(this.textDocument.uri)}">
       </head>
       <body${node.getId() ? ` id="${node.getId()}"` : ''} class="${this.getBodyCssClasses(node)}">
         ${headerDocinfo}
@@ -165,7 +169,7 @@ export class AsciidoctorWebViewConverter {
         ${this.generateFootnotes(node)}
         ${this.generateFooter(node)}
         <div class="code-line" data-line="${this.textDocument.lineCount}"></div>
-        <script async src="${this.extensionResourcePath('index.js')}" nonce="${nonce}" charset="UTF-8"></script>
+        ${this.getScripts(resourceProvider, nonce)}
         ${syntaxHighlighterFooterContent}
         ${this.generateMathJax(node, resourceProvider, nonce)}
         ${footerDocinfo}
@@ -380,8 +384,11 @@ ${node.hasAttribute('manpurpose') ? this.generateManNameSection(node) : ''}`
   }
 
   private getStyles (node: Asciidoctor.Document, resourceProvider: WebviewResourceProvider, resource: vscode.Uri, config: AsciidocPreviewConfiguration, state?: any): string {
-    // QUESTION: should we support `stylesdir` and `stylesheet` attributes?
     const baseStyles: string[] = []
+    for (const resource of this.contributionProvider.contributions.previewStyles) {
+      baseStyles.push(`<link rel="stylesheet" type="text/css" href="${escapeAttribute(resourceProvider.asWebviewUri(resource))}">`)
+    }
+    // QUESTION: should we support `stylesdir` and `stylesheet` attributes?
     if (config.previewStyle === '') {
       const builtinStylesheet = config.useEditorStylesheet ? 'asciidoctor-editor.css' : 'asciidoctor-default.css'
       baseStyles.push(`<link rel="stylesheet" type="text/css" href="${escapeAttribute(resourceProvider.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', builtinStylesheet)))}">`)
@@ -392,6 +399,14 @@ ${node.hasAttribute('manpurpose') ? this.generateManNameSection(node) : ''}`
     return `${baseStyles.join('\n')}
   ${this.computeCustomStyleSheetIncludes(resourceProvider, resource, config)}
   ${this.getImageStabilizerStyles(state)}`
+  }
+
+  private getScripts (resourceProvider: WebviewResourceProvider, nonce: string): string {
+    const out: string[] = []
+    for (const resource of this.contributionProvider.contributions.previewScripts) {
+      out.push(`<script async src="${escapeAttribute(resourceProvider.asWebviewUri(resource))}" nonce="${nonce}" charset="UTF-8"></script>`)
+    }
+    return out.join('\n')
   }
 
   private computeCustomStyleSheetIncludes (resourceProvider: WebviewResourceProvider, resource: vscode.Uri, config: AsciidocPreviewConfiguration): string {
@@ -430,7 +445,7 @@ ${node.hasAttribute('manpurpose') ? this.generateManNameSection(node) : ''}`
     }
 
     // Assume it must be a local file
-    if (isAbsolute(href)) {
+    if (href.startsWith('/') || /^[a-z]:\\/i.test(href)) {
       return resourceProvider.asWebviewUri(vscode.Uri.file(href)).toString()
     }
 
@@ -441,6 +456,6 @@ ${node.hasAttribute('manpurpose') ? this.generateManNameSection(node) : ''}`
     }
 
     // Otherwise look relative to the AsciiDoc file
-    return resourceProvider.asWebviewUri(vscode.Uri.file(join(dirname(resource.fsPath), href))).toString()
+    return resourceProvider.asWebviewUri(vscode.Uri.joinPath(uri.Utils.dirname(resource), href)).toString()
   }
 }

@@ -284,67 +284,74 @@
 						"order": 2,
 						"scope": "resource"
 					},
+					"asciidoc.preview.preservePreviewWhenHidden": {
+						"type": "boolean",
+						"default": false,
+						"description": "%asciidoc.preview.preservePreviewWhenHidden.desc%",
+						"order": 3,
+						"scope": "resource"
+					},
 					"asciidoc.preview.style": {
 						"type": "string",
 						"default": "",
 						"markdownDescription": "%asciidoc.preview.style.desc%",
-						"order": 3,
+						"order": 4,
 						"scope": "resource"
 					},
 					"asciidoc.preview.useEditorStyle": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "%asciidoc.preview.useEditorStyle.desc%",
-						"order": 4,
+						"order": 5,
 						"scope": "resource"
 					},
 					"asciidoc.preview.fontFamily": {
 						"type": "string",
 						"default": "-apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', 'HelveticaNeue-Light', 'Ubuntu', 'Droid Sans', sans-serif",
 						"markdownDescription": "%asciidoc.preview.fontFamily.desc%",
-						"order": 5,
+						"order": 6,
 						"scope": "resource"
 					},
 					"asciidoc.preview.fontSize": {
 						"type": "number",
 						"default": 14,
 						"markdownDescription": "%asciidoc.preview.fontSize.desc%",
-						"order": 6,
+						"order": 7,
 						"scope": "resource"
 					},
 					"asciidoc.preview.lineHeight": {
 						"type": "number",
 						"default": 1.6,
 						"markdownDescription": "%asciidoc.preview.lineHeight.desc%",
-						"order": 7,
+						"order": 8,
 						"scope": "resource"
 					},
 					"asciidoc.preview.scrollPreviewWithEditor": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "%asciidoc.preview.scrollPreviewWithEditor.desc%",
-						"order": 8,
+						"order": 9,
 						"scope": "resource"
 					},
 					"asciidoc.preview.scrollEditorWithPreview": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "%asciidoc.preview.scrollEditorWithPreview.desc%",
-						"order": 9,
+						"order": 10,
 						"scope": "resource"
 					},
 					"asciidoc.preview.markEditorSelection": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "%asciidoc.preview.markEditorSelection.desc%",
-						"order": 10,
+						"order": 11,
 						"scope": "resource"
 					},
 					"asciidoc.preview.doubleClickToSwitchToEditor": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "%asciidoc.preview.doubleClickToSwitchToEditor.desc%",
-						"order": 11,
+						"order": 12,
 						"scope": "resource"
 					},
 					"asciidoc.preview.openLinksToAsciidocFiles": {
@@ -359,7 +366,7 @@
 							"%asciidoc.preview.openLinksToAsciidocFiles.inPreview%",
 							"%asciidoc.preview.openLinksToAsciidocFiles.inEditor%"
 						],
-						"order": 12,
+						"order": 13,
 						"scope": "resource"
 					},
 					"asciidoc.preview.openAsciiDocLinks": {
@@ -526,6 +533,11 @@
 						"order": 2,
 						"scope": "resource"
 					}
+				},
+				"asciidoc.antora.enableAntoraSupport": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "%asciidoc.antora.enableAntoraSupport.desc%"
 				}
 			}
 		],
@@ -535,6 +547,12 @@
 				"editor.quickSuggestions": false
 			}
 		},
+		"asciidoc.previewStyles": [
+			"./media/editor-selection.css"
+		],
+		"asciidoc.previewScripts": [
+			"./dist/index.js"
+		],
 		"snippets": [
 			{
 				"language": "asciidoc",
@@ -574,8 +592,8 @@
 		"@types/mocha": "~9.1",
 		"@types/node": "~12.20",
 		"@types/vscode": "~1.64",
-		"@typescript-eslint/eslint-plugin": "5.11.0",
-		"@typescript-eslint/parser": "5.11.0",
+		"@typescript-eslint/eslint-plugin": "5.14.0",
+		"@typescript-eslint/parser": "5.14.0",
 		"copy-webpack-plugin": "10.2.4",
 		"eslint": "8.8.0",
 		"eslint-config-standard": "^17.0.0",
@@ -585,6 +603,7 @@
 		"eslint-plugin-promise": "6.0.0",
 		"font-awesome": "^4.7.0",
 		"gulp": "^4.0.2",
+		"js-yaml": "^4.1.0",
 		"lodash.throttle": "4.1.1",
 		"mathjax": "^2.7.9",
 		"mocha": "9.2.0",
@@ -606,6 +625,13 @@
 		"@orcid/bibtex-parse-js": "0.0.25",
 		"asciidoctor-kroki": "0.15.4",
 		"uuid": "8.3.2",
-		"vscode-nls": "5.0.0"
+		"vscode-nls": "5.0.0",
+		"vscode-uri": "3.0.3"
+	},
+	"__metadata": {
+		"id": "c1309cc2-f420-46a3-b2be-ca04f4d9e51b",
+		"publisherDisplayName": "asciidoctor",
+		"publisherId": "b139f5ca-8a7c-4029-b14a-59f66583c82c",
+		"isPreReleaseVersion": false
 	}
 }
